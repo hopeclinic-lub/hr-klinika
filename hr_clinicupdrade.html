@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR — Ewidencja obecności</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;color:#111;min-height:100vh}
+#app{min-height:100vh}
+[v-cloak]{display:none}
+.wrap{max-width:820px;margin:0 auto;padding:1.5rem 1rem}
+.card{background:#fff;border:1px solid #e5e5e3;border-radius:12px;padding:1rem 1.25rem}
+.card-sm{background:#fff;border:1px solid #e5e5e3;border-radius:10px;padding:10px 14px}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+h2{font-size:16px;font-weight:600;margin-bottom:12px}
+label{display:block;font-size:12px;color:#666;margin-bottom:4px}
+input,select{width:100%;padding:8px 10px;border:1px solid #d0d0ce;border-radius:8px;font-size:14px;background:#fff;color:#111;outline:none;transition:border .15s}
+input:focus,select:focus{border-color:#378ADD;box-shadow:0 0 0 3px #378ADD18}
+input[type=date]{color:#111}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:1px solid #d0d0ce;background:#fff;color:#111;font-size:13px;cursor:pointer;transition:background .1s}
+.btn:hover{background:#f5f5f3}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:#E6F1FB;color:#042C53;border-color:#185FA5}
+.btn-success{background:#E1F5EE;color:#04342C;border-color:#1D9E75}
+.btn-danger{background:#FCEBEB;color:#501313;border-color:#E24B4A}
+.btn-print{background:#534AB7;color:#fff;border-color:#534AB7}
+.btn-print:hover{background:#3C3489;color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px}
+.tab{padding:6px 14px;border-radius:8px;border:1px solid #d0d0ce;background:transparent;color:#666;font-size:13px;cursor:pointer}
+.tab.active{background:#ebebea;border-color:#999;color:#111;font-weight:500}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.metric{background:#f0f0ee;border-radius:8px;padding:10px 14px}
+.metric .lbl{font-size:11px;color:#666;margin-bottom:2px}
+.metric .val{font-size:22px;font-weight:600}
+.row{display:flex;align-items:center;gap:12px}
+.row-top{display:flex;align-items:flex-start;gap:10px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap}
+.sep{border:none;border-top:1px solid #e5e5e3;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:6px 8px;font-weight:500;color:#666;border-bottom:1px solid #e5e5e3;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid #f0f0ee;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.att-btn{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #ddd;background:transparent;color:#666;cursor:pointer;white-space:nowrap;transition:all .1s}
+.overflow-x{overflow-x:auto}
+.flex{display:flex}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.flex1{flex:1;min-width:0}
+.f11{font-size:11px}.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}.fw5{font-weight:500}.fw6{font-weight:600}
+.text-muted{color:#666}.text-hint{color:#aaa}.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gap6{gap:6px}.gap8{gap:8px}.gap10{gap:10px}.gap12{gap:12px}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
+.topbar{background:#fff;border-bottom:1px solid #e5e5e3;padding:12px 1rem}
+.topbar-inner{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.err{color:#A32D2D;font-size:13px;margin-top:4px}
+.ok{color:#0F6E56;font-size:13px;margin-top:4px}
+.hint{font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:10px;margin-top:4px;line-height:1.6}
+.loader{display:flex;align-items:center;justify-content:center;min-height:100vh;color:#666;font-size:14px}
+.kp-box{background:#EAF3DE;border:1px solid #97C459;border-radius:8px;padding:10px 14px;font-size:12px;color:#27500A}
+
+/* ── DRUK ── */
+.print-only{display:none}
+@media print{
+  body{background:#fff;font-size:12pt}
+  .no-print,.topbar,.tabs{display:none!important}
+  .print-only{display:block!important}
+  .wrap{padding:0;max-width:100%}
+  .ph{margin-bottom:14px}
+  .ph h1{font-size:15pt;font-weight:700;margin-bottom:3px}
+  .ph p{font-size:10pt;color:#333}
+  .pt{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:18px}
+  .pt th{border:1pt solid #333;padding:5pt 6pt;background:#f0f0f0;font-weight:700;text-align:center}
+  .pt th:first-child{text-align:left}
+  .pt td{border:1pt solid #aaa;padding:5pt 6pt;text-align:center}
+  .pt td:first-child{text-align:left;font-weight:600}
+  .pt tr.sr td{height:38pt;vertical-align:bottom;font-size:8pt;color:#555;padding-bottom:3pt}
+  .pf{font-size:8pt;color:#666;border-top:1pt solid #aaa;padding-top:6pt;margin-top:6pt}
+  .pl{display:flex;gap:14pt;font-size:9pt;color:#444;margin-bottom:10pt}
+  .psig{display:flex;justify-content:space-between;margin-top:36pt;font-size:9pt}
+  .psig div{border-top:1pt solid #333;min-width:180pt;padding-top:3pt}
+  @media(max-width:600px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+}
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <div v-if="loading" class="loader">Ładowanie...</div>
+
+  <div v-else-if="!firebaseOk" style="max-width:520px;margin:3rem auto;padding:0 1rem">
+    <div class="card">
+      <h1 style="margin-bottom:8px">Konfiguracja Firebase</h1>
+      <p class="f13 text-muted mb16">Otwórz plik w Notatniku i zastąp blok <code>firebaseConfig</code> swoimi danymi.</p>
+      <ol style="font-size:13px;color:#444;line-height:2.2;padding-left:1.2rem">
+        <li>Wejdź na <a href="https://console.firebase.google.com" target="_blank" style="color:#185FA5">console.firebase.google.com</a></li>
+        <li>Projekt → Dodaj aplikację webową (&lt;/&gt;) → skopiuj <code>firebaseConfig</code></li>
+        <li>Firestore Database → Create database → Test mode → europe-west1</li>
+        <li>Wklej config do pliku, wrzuć na <a href="https://app.netlify.com/drop" target="_blank" style="color:#185FA5">netlify.com/drop</a></li>
+      </ol>
+    </div>
+  </div>
+
+  <div v-else-if="!currentUser" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem">
+    <div style="width:100%;max-width:340px">
+      <h1 class="mb8">System HR</h1>
+      <p class="text-muted f13 mb16">Ewidencja czasu pracy i urlopów</p>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div><label>Login</label><input v-model="loginForm.login" @keyup.enter="doLogin" placeholder="np. anna.kowalska"/></div>
+        <div><label>Hasło</label><input type="password" v-model="loginForm.password" @keyup.enter="doLogin"/></div>
+        <div v-if="loginError" class="err">{{ loginError }}</div>
+        <button class="btn btn-primary" style="width:100%;padding:9px;font-size:14px;justify-content:center" @click="doLogin" :disabled="loginLoading">
+          {{ loginLoading ? 'Logowanie...' : 'Zaloguj się' }}
+        </button>
+        <div class="hint">Pierwsze uruchomienie: admin / admin123</div>
+      </div>
+    </div>
+  </div>
+
+  <template v-else>
+    <div class="topbar no-print">
+      <div class="topbar-inner">
+        <div :style="`width:36px;height:36px;background:${avatarBg(currentUser.id)};color:${avatarColor(currentUser.id)};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0`">{{ initials(currentUser.name) }}</div>
+        <div class="flex1">
+          <div class="fw5 f14">{{ currentUser.name }}</div>
+          <div class="f12 text-muted">{{ currentUser.role==='admin'?'Administrator':currentUser.position }}</div>
+        </div>
+        <button class="btn btn-sm" @click="doLogout">Wyloguj</button>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div v-if="currentUser.role==='admin'" class="wrap">
+      <div class="tabs no-print">
+        <button :class="['tab',adminTab==='today'&&'active']" @click="adminTab='today'">Dziś</button>
+        <button :class="['tab',adminTab==='employees'&&'active']" @click="adminTab='employees'">Pracownicy</button>
+        <button :class="['tab',adminTab==='leaves'&&'active']" @click="adminTab='leaves'">Urlopy{{ pendingCount>0?` (${pendingCount})`:'' }}</button>
+        <button :class="['tab',adminTab==='reports'&&'active']" @click="adminTab='reports'">Raporty</button>
+      </div>
+
+      <!-- DZIŚ -->
+      <div v-if="adminTab==='today'">
+        <p class="f13 text-muted mb12">{{ todayLabel }}</p>
+        <div class="grid4 mb16">
+          <div class="metric" v-for="m in todayMetrics" :key="m.label">
+            <div class="lbl">{{ m.label }}</div>
+            <div class="val" :style="`color:${m.color}`">{{ m.val }}</div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card-sm row" v-for="emp in employees" :key="emp.id">
+            <div :style="`width:32px;height:32px;background:${avatarBg(emp.id)};color:${avatarColor(emp.id)};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0`">{{ initials(emp.name) }}</div>
+            <div class="flex1" style="min-width:0">
+              <div class="fw5 f13 ellipsis">{{ emp.name }}</div>
+              <div class="f12 text-muted">{{ emp.position }}</div>
+            </div>
+            <div class="flex flex-wrap gap6" style="justify-content:flex-end">
+              <button v-for="a in ATT" :key="a.key" class="att-btn"
+                :style="getAtt(emp.id,today)===a.key?`background:${a.bg};color:${a.text};border-color:${a.color};font-weight:500`:''"
+                @click="toggleAtt(emp.id,today,a.key)">{{ a.short }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRACOWNICY -->
+      <div v-if="adminTab==='employees'">
+        <div v-if="empForm.open" class="card mb12">
+          <h2>{{ empForm.id?'Edycja: '+empForm.name:'Nowy pracownik' }}</h2>
+          <div class="grid2 mb12">
+            <div><label>Imię i nazwisko</label><input v-model="empForm.name"/></div>
+            <div><label>Login</label><input v-model="empForm.login"/></div>
+            <div><label>Hasło</label><input type="password" v-model="empForm.password"/></div>
+            <div><label>Stanowisko</label><input v-model="empForm.position"/></div>
+            <div><label>Dział</label><input v-model="empForm.department"/></div>
+            <div><label>Data zatrudnienia (tu)</label><input type="date" v-model="empForm.hireDate" @change="autoCalcEntitlement"/></div>
+            <div>
+              <label>Poprzedni staż pracy (lata przed tą firmą)</label>
+              <input type="number" min="0" max="50" v-model.number="empForm.prevWorkYears" @input="autoCalcEntitlement"/>
+              <div class="f11 text-hint mt8">Wlicz lata nauki: studia wyższe +8 lat, liceum +4 lata, technikum +5 lat, zasadnicze zawodowe +3 lata</div>
+            </div>
+            <div>
+              <label>Wymiar urlopu (dni/rok)</label>
+              <input type="number" min="0" max="30" v-model.number="empForm.leaveEntitlement"/>
+              <div v-if="empForm.hireDate" class="kp-box mt8">
+                KP sugeruje: <b>{{ suggestedEntitlement }} dni</b> (łączny staż: ~{{ totalStaz }} lat)
+                <br><span class="f11">{{ totalStaz>=10?'≥10 lat stażu → 26 dni':'&lt;10 lat stażu → 20 dni' }} · art. 154 KP</span>
+              </div>
+            </div>
+            <div><label>Rola</label>
+              <select v-model="empForm.role">
+                <option value="employee">Pracownik</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap8">
+            <button class="btn btn-success" @click="saveEmployee">Zapisz</button>
+            <button class="btn" @click="empForm.open=false">Anuluj</button>
+          </div>
+        </div>
+        <div class="flex justify-between items-center mb12">
+          <span class="f13 text-muted">{{ employees.length }} pracowników</span>
+          <button class="btn btn-primary btn-sm" @click="openAddEmp">+ Dodaj pracownika</button>
+        </div>
+        <div class="stack">
+          <div class="card-sm row" v-for="u in allUsers" :key="u.id">
+            <div :style="`width:36px;height:36px;background:${avatarBg(u.id)};color:${avatarColor(u.id)};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0`">{{ initials(u.name) }}</div>
+            <div class="flex1"><div class="fw5 f13">{{ u.name }}</div><div class="f12 text-muted">{{ u.position }} · {{ u.department }}</div></div>
+            <div class="f12 text-muted" style="text-align:right;margin-right:10px">
+              <div>Urlop: <b>{{ u.leaveEntitlement }}d</b></div>
+              <div class="f11 text-hint">{{ u.login }}</div>
+            </div>
+            <div class="flex gap6">
+              <button class="btn btn-sm" @click="openEditEmp(u)">Edytuj</button>
+              <button v-if="u.role!=='admin'" class="btn btn-sm btn-danger" @click="deleteEmployee(u.id)">Usuń</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- URLOPY -->
+      <div v-if="adminTab==='leaves'">
+        <div class="flex flex-wrap gap6 mb12">
+          <button v-for="f in leaveFilters" :key="f.key" :class="['tab',leaveFilter===f.key&&'active']" @click="leaveFilter=f.key">{{ f.label }}</button>
+        </div>
+        <div v-if="filteredLeaves.length===0" class="f13 text-hint" style="padding:1rem 0">Brak wniosków</div>
+        <div class="stack">
+          <div class="card-sm" v-for="req in filteredLeaves" :key="req.id">
+            <div class="row-top">
+              <div :style="`width:32px;height:32px;background:${avatarBg(req.userId)};color:${avatarColor(req.userId)};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px`">{{ initials(req.userName||'?') }}</div>
+              <div class="flex1">
+                <div class="flex items-center flex-wrap gap6 mb8">
+                  <span class="fw5 f13">{{ req.userName }}</span>
+                  <span class="badge" :style="`background:${LT[req.type]?.bg};color:${LT[req.type]?.text}`">{{ LT[req.type]?.label }}</span>
+                  <span class="badge" :style="statusBadge(req.status)">{{ statusLabel(req.status) }}</span>
+                </div>
+                <div class="f12 text-muted">{{ fmtD(req.dateFrom) }} – {{ fmtD(req.dateTo) }} · <b>{{ req.days }} dni rob.</b>{{ req.note?' · '+req.note:'' }}</div>
+                <div v-if="req.status==='pending'" class="f11 text-hint mt8">Saldo: {{ getUserBalance(req.userId) }} dni pozostałych</div>
+              </div>
+              <div v-if="req.status==='pending'" class="flex gap6" style="flex-shrink:0">
+                <button class="btn btn-sm btn-success" @click="resolveLeave(req.id,'approved')">Zatwierdź</button>
+                <button class="btn btn-sm btn-danger" @click="resolveLeave(req.id,'rejected')">Odrzuć</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RAPORTY -->
+      <div v-if="adminTab==='reports'">
+        <div class="flex items-center gap12 mb16 no-print" style="flex-wrap:wrap">
+          <div class="flex items-center gap8">
+            <label style="display:inline;margin:0;font-size:13px;color:#666">Miesiąc:</label>
+            <input type="month" v-model="reportMonth" style="width:auto"/>
+          </div>
+          <span class="f12 text-hint">Dni robocze: {{ workDaysInMonth }}</span>
+          <button class="btn btn-print btn-sm" @click="printReport">&#128438; Drukuj / PDF</button>
+        </div>
+
+        <!-- ekran -->
+        <div class="overflow-x no-print">
+          <table>
+            <thead>
+              <tr>
+                <th>Pracownik</th>
+                <th style="text-align:center">Obecny</th>
+                <th style="text-align:center">Home/Del.</th>
+                <th style="text-align:center">Urlop</th>
+                <th style="text-align:center">Nieobecny</th>
+                <th style="text-align:center">% obecności</th>
+                <th style="text-align:center">Urlop (rok)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row,i) in reportRows" :key="row.id" :style="i%2===1?'background:#fafaf8':''">
+                <td class="fw5">{{ row.name }}</td>
+                <td style="text-align:center;color:#0F6E56;font-weight:500">{{ row.obecny }}</td>
+                <td style="text-align:center;color:#534AB7;font-weight:500">{{ row.homeOrDel }}</td>
+                <td style="text-align:center;color:#185FA5;font-weight:500">{{ row.urlop }}</td>
+                <td style="text-align:center;color:#A32D2D;font-weight:500">{{ row.nieobecny }}</td>
+                <td style="text-align:center;font-weight:500" :style="`color:${row.pct>=80?'#0F6E56':row.pct>=50?'#BA7517':'#A32D2D'}`">{{ row.pct }}%</td>
+                <td style="text-align:center;font-size:12px;color:#666"><span :style="`color:${row.leaveRem<5?'#A32D2D':'#0F6E56'};font-weight:500`">{{ row.leaveRem }}</span>/{{ row.leaveEnt }}d</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- wydruk (niewidoczny na ekranie) -->
+        <div class="print-only">
+          <div class="ph">
+            <h1>Ewidencja czasu pracy — {{ reportMonthLabel }}</h1>
+            <p>Wygenerowano: {{ printDate }} &nbsp;|&nbsp; Liczba dni roboczych w miesiącu: {{ workDaysInMonth }}</p>
+          </div>
+          <div class="pl">
+            <span>OB = Obecny</span><span>HO = Home office</span><span>DL = Delegacja</span><span>NB = Nieobecny</span><span>UR = Urlop</span>
+          </div>
+          <table class="pt">
+            <thead>
+              <tr>
+                <th style="text-align:left">Pracownik</th>
+                <th>Obecny</th>
+                <th>Home/Del.</th>
+                <th>Urlop</th>
+                <th>Nieobecny</th>
+                <th>% obecn.</th>
+                <th>Urlop pozostały</th>
+                <th style="min-width:120px">Podpis pracownika</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in reportRows" :key="row.id" class="sr">
+                <td style="text-align:left;font-weight:700">{{ row.name }}</td>
+                <td>{{ row.obecny }}</td>
+                <td>{{ row.homeOrDel }}</td>
+                <td>{{ row.urlop }}</td>
+                <td>{{ row.nieobecny }}</td>
+                <td>{{ row.pct }}%</td>
+                <td>{{ row.leaveRem }}/{{ row.leaveEnt }} dni</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="psig">
+            <div>Podpis pracodawcy / kierownika</div>
+            <div>Data i miejsce sporządzenia</div>
+          </div>
+          <div class="pf">Dokument sporządzony na podstawie ewidencji czasu pracy zgodnie z art. 149 Kodeksu pracy.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRACOWNIK -->
+    <div v-else class="wrap">
+      <div class="tabs no-print">
+        <button :class="['tab',empTab==='today'&&'active']" @click="empTab='today'">Dziś</button>
+        <button :class="['tab',empTab==='leave'&&'active']" @click="empTab='leave'">Urlop</button>
+        <button :class="['tab',empTab==='history'&&'active']" @click="empTab='history'">Historia</button>
+      </div>
+
+      <div v-if="empTab==='today'">
+        <p class="f13 text-muted mb12">{{ todayLabel }}</p>
+        <div class="card mb12">
+          <div class="f12 text-muted mb8">Twój status dziś</div>
+          <div v-if="myTodayStatus" class="fw5 mb12" :style="`font-size:18px;color:${ATT_MAP[myTodayStatus]?.color}`">{{ ATT_MAP[myTodayStatus]?.label }}</div>
+          <div v-else class="text-hint f14 mb12">Nie ustawiono statusu</div>
+          <div class="flex flex-wrap gap6">
+            <button v-for="a in ATT" :key="a.key" class="btn btn-sm"
+              :style="myTodayStatus===a.key?`background:${a.bg};color:${a.text};border-color:${a.color}`:''"
+              @click="toggleAtt(currentUser.id,today,a.key)">{{ a.label }}</button>
+          </div>
+        </div>
+        <div class="f12 text-hint mb8">Ostatnie 7 dni</div>
+        <div class="flex gap8">
+          <div v-for="d in last7" :key="d" style="text-align:center;min-width:40px">
+            <div class="f11 text-hint mb8">{{ weekdayShort(d) }}</div>
+            <div class="f13 mb8" :style="d===today?'font-weight:600':''">{{ dayNum(d) }}</div>
+            <span v-if="ATT_MAP[getAtt(currentUser.id,d)]" class="badge" style="font-size:9px;padding:2px 5px" :style="`background:${ATT_MAP[getAtt(currentUser.id,d)]?.bg};color:${ATT_MAP[getAtt(currentUser.id,d)]?.text}`">{{ ATT_MAP[getAtt(currentUser.id,d)]?.short }}</span>
+            <span v-else class="text-hint" style="font-size:10px">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="empTab==='leave'">
+        <div class="grid3 mb12">
+          <div class="metric"><div class="lbl">Przysługuje</div><div class="val">{{ myBalance.entitlement }} dni</div></div>
+          <div class="metric"><div class="lbl">Wykorzystano</div><div class="val" style="color:#A32D2D">{{ myBalance.used }} dni</div></div>
+          <div class="metric"><div class="lbl">Pozostało</div><div class="val" :style="`color:${myBalance.remaining<5?'#A32D2D':myBalance.remaining<10?'#BA7517':'#0F6E56'}`">{{ myBalance.remaining }} dni</div></div>
+        </div>
+        <div class="kp-box mb16">
+          <b>Twój urlop wg Kodeksu pracy: {{ currentUser.leaveEntitlement }} dni/rok</b><br>
+          <span class="f11">Art. 154 KP: 20 dni (staż &lt;10 lat) lub 26 dni (staż ≥10 lat). Urlop na żądanie (art. 167² KP): 4 dni w roku, wliczone w powyższe. Urlop na żądanie: {{ myBalance.zadUsed }}/4 dni.</span>
+        </div>
+        <div class="card mb16">
+          <h2>Złóż wniosek urlopowy</h2>
+          <div class="grid2 mb12">
+            <div style="grid-column:1/-1"><label>Rodzaj urlopu</label>
+              <select v-model="leaveForm.type">
+                <option v-for="lt in LEAVE_TYPES" :key="lt.key" :value="lt.key">{{ lt.label }}</option>
+              </select>
+            </div>
+            <div><label>Od</label><input type="date" v-model="leaveForm.dateFrom"/></div>
+            <div><label>Do</label><input type="date" v-model="leaveForm.dateTo" :min="leaveForm.dateFrom"/></div>
+            <div style="grid-column:1/-1"><label>Notatka</label><input v-model="leaveForm.note" placeholder="opcjonalnie"/></div>
+          </div>
+          <div v-if="leaveDays>0" class="f13 text-muted mb12">Liczba dni roboczych: <b>{{ leaveDays }}</b></div>
+          <div v-if="leaveMsg" :class="leaveMsg.ok?'ok':'err'" class="mb12">{{ leaveMsg.text }}</div>
+          <button class="btn btn-primary" @click="submitLeave" :disabled="leaveDays===0">Złóż wniosek</button>
+        </div>
+        <h2>Moje wnioski</h2>
+        <div v-if="myLeaves.length===0" class="f13 text-hint">Brak wniosków</div>
+        <div class="stack">
+          <div class="card-sm" v-for="req in myLeaves" :key="req.id">
+            <div class="flex items-center flex-wrap gap6 mb8">
+              <span class="badge" :style="`background:${LT[req.type]?.bg};color:${LT[req.type]?.text}`">{{ LT[req.type]?.label }}</span>
+              <span class="badge" :style="statusBadge(req.status)">{{ statusLabel(req.status) }}</span>
+            </div>
+            <div class="f13 text-muted">{{ fmtD(req.dateFrom) }} – {{ fmtD(req.dateTo) }} · <b>{{ req.days }} dni rob.</b>{{ req.note?' · '+req.note:'' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="empTab==='history'">
+        <p class="f13 text-muted mb12">Ostatnie 30 dni</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px">
+          <div v-for="d in last30" :key="d" style="text-align:center" :style="isWeekend(d)?'opacity:.35':''">
+            <div style="font-size:9px;color:#aaa;margin-bottom:1px">{{ weekdayShort(d) }}</div>
+            <div style="font-size:11px;color:#666;margin-bottom:3px">{{ dayNum(d) }}</div>
+            <span v-if="ATT_MAP[getAtt(currentUser.id,d)]" class="badge" style="font-size:9px;padding:2px 4px;display:block" :style="`background:${ATT_MAP[getAtt(currentUser.id,d)]?.bg};color:${ATT_MAP[getAtt(currentUser.id,d)]?.text}`">{{ ATT_MAP[getAtt(currentUser.id,d)]?.short }}</span>
+            <span v-else style="font-size:9px;color:#ddd;display:block">{{ isWeekend(d)?'–':'?' }}</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap10 mt16">
+          <span v-for="a in ATT" :key="a.key" class="flex items-center gap6 f12 text-muted">
+            <span class="badge" style="font-size:10px;padding:2px 6px" :style="`background:${a.bg};color:${a.text}`">{{ a.short }}</span> {{ a.label }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  WKLEJ TUTAJ SWÓJ firebaseConfig
+// ═══════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "WKLEJ_TUTAJ",
+  authDomain: "WKLEJ_TUTAJ",
+  projectId: "WKLEJ_TUTAJ",
+  storageBucket: "WKLEJ_TUTAJ",
+  messagingSenderId: "WKLEJ_TUTAJ",
+  appId: "WKLEJ_TUTAJ"
+};
+// ═══════════════════════════════════════════════════════════════════
+
+const LEAVE_TYPES=[
+  {key:"wypoczynkowy",label:"Urlop wypoczynkowy",bg:"#E6F1FB",text:"#042C53"},
+  {key:"zadanie",label:"Na żądanie (art. 167²)",bg:"#FAEEDA",text:"#412402"},
+  {key:"okolicznosciowy",label:"Okolicznościowy",bg:"#FBEAF0",text:"#4B1528"},
+  {key:"bezplatny",label:"Bezpłatny",bg:"#F1EFE8",text:"#2C2C2A"},
+  {key:"chorobowy",label:"Chorobowy (L4)",bg:"#FCEBEB",text:"#501313"},
+];
+const LT=Object.fromEntries(LEAVE_TYPES.map(l=>[l.key,l]));
+const ATT=[
+  {key:"obecny",label:"Obecny",short:"OB",color:"#0F6E56",bg:"#E1F5EE",text:"#04342C"},
+  {key:"nieobecny",label:"Nieobecny",short:"NB",color:"#A32D2D",bg:"#FCEBEB",text:"#501313"},
+  {key:"home",label:"Home office",short:"HO",color:"#BA7517",bg:"#FAEEDA",text:"#412402"},
+  {key:"delegacja",label:"Delegacja",short:"DL",color:"#534AB7",bg:"#EEEDFE",text:"#26215C"},
+  {key:"urlop",label:"Urlop",short:"UR",color:"#185FA5",bg:"#E6F1FB",text:"#042C53"},
+];
+const ATT_MAP=Object.fromEntries(ATT.map(a=>[a.key,a]));
+const DEFAULT_ADMIN={name:"Administrator",login:"admin",password:"admin123",role:"admin",department:"Zarząd",position:"Administrator",hireDate:"2019-01-01",prevWorkYears:0,leaveEntitlement:26};
+const AVC_BG=["#E6F1FB","#E1F5EE","#FBEAF0","#FAEEDA","#EEEDFE","#FCEBEB"];
+const AVC_COL=["#185FA5","#0F6E56","#993556","#854F0B","#534AB7","#993C1D"];
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const thisYear=()=>new Date().getFullYear();
+const workDaysBetween=(from,to)=>{if(!from||!to||to<from)return 0;let n=0;const d=new Date(from+"T12:00:00"),e=new Date(to+"T12:00:00");while(d<=e){if(d.getDay()!==0&&d.getDay()!==6)n++;d.setDate(d.getDate()+1);}return n;};
+const fmtD=d=>d?new Date(d+"T12:00:00").toLocaleDateString("pl-PL",{day:"numeric",month:"short",year:"numeric"}):"";
+const calcKPEntitlement=(hireDate,prevWorkYears=0)=>{
+  if(!hireDate)return 20;
+  const hired=new Date(hireDate+"T12:00:00"),now=new Date();
+  const yearsHere=(now-hired)/(1000*60*60*24*365.25);
+  const totalStaz=(prevWorkYears||0)+yearsHere;
+  const base=totalStaz>=10?26:20;
+  if(yearsHere<1){const months=(now-hired)/(1000*60*60*24*30.44);return Math.min(Math.floor((base/12)*Math.ceil(months)),base);}
+  return base;
+};
+
+const {createApp,ref,computed,onMounted}=Vue;
+createApp({
+  setup(){
+    const firebaseOk=ref(false);const loading=ref(true);let db=null;
+    try{if(firebaseConfig.apiKey!=="WKLEJ_TUTAJ"){firebase.initializeApp(firebaseConfig);db=firebase.firestore();firebaseOk.value=true;}}catch(e){console.error(e);}
+    const currentUser=ref(null);const allUsers=ref([]);const attendance=ref({});const leaveReqs=ref([]);
+    const loginForm=ref({login:"",password:""});const loginError=ref("");const loginLoading=ref(false);
+    const adminTab=ref("today");const empTab=ref("today");const leaveFilter=ref("pending");
+    const reportMonth=ref(new Date().toISOString().slice(0,7));
+    const empForm=ref({open:false});const leaveForm=ref({type:"wypoczynkowy",dateFrom:"",dateTo:"",note:""});const leaveMsg=ref(null);
+
+    const today=computed(()=>todayStr());
+    const employees=computed(()=>allUsers.value.filter(u=>u.role==="employee"));
+    const todayLabel=computed(()=>new Date().toLocaleDateString("pl-PL",{weekday:"long",day:"numeric",month:"long",year:"numeric"}));
+    const todayMetrics=computed(()=>{
+      const c={obecny:0,nieobecny:0,home:0,delegacja:0};
+      employees.value.forEach(e=>{const s=getAtt(e.id,today.value);if(s&&c[s]!==undefined)c[s]++;});
+      const unmarked=employees.value.filter(e=>!getAtt(e.id,today.value)).length;
+      return[{label:"Obecni",val:c.obecny,color:"#0F6E56"},{label:"Nieobecni",val:c.nieobecny,color:"#A32D2D"},{label:"Home/Del.",val:c.home+c.delegacja,color:"#534AB7"},{label:"Bez statusu",val:unmarked,color:"#999"}];
+    });
+    const pendingCount=computed(()=>leaveReqs.value.filter(r=>r.status==="pending").length);
+    const leaveFilters=computed(()=>[{key:"pending",label:`Oczekujące (${pendingCount.value})`},{key:"approved",label:"Zatwierdzone"},{key:"rejected",label:"Odrzucone"},{key:"all",label:"Wszystkie"}]);
+    const filteredLeaves=computed(()=>leaveReqs.value.filter(r=>leaveFilter.value==="all"||r.status===leaveFilter.value).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));
+    const workDaysInMonth=computed(()=>{const[year,mon]=reportMonth.value.split("-").map(Number);const dim=new Date(year,mon,0).getDate();let n=0;for(let i=1;i<=dim;i++){const day=new Date(year,mon-1,i).getDay();if(day!==0&&day!==6)n++;}return n;});
+    const reportMonthLabel=computed(()=>{const[year,mon]=reportMonth.value.split("-").map(Number);return new Date(year,mon-1,1).toLocaleDateString("pl-PL",{month:"long",year:"numeric"});});
+    const printDate=computed(()=>new Date().toLocaleDateString("pl-PL",{day:"numeric",month:"long",year:"numeric"}));
+    const reportRows=computed(()=>{
+      const[year,mon]=reportMonth.value.split("-").map(Number);const dim=new Date(year,mon,0).getDate();
+      const monthDays=Array.from({length:dim},(_,i)=>new Date(year,mon-1,i+1).toISOString().slice(0,10));
+      return employees.value.map(emp=>{
+        const recs=monthDays.map(d=>getAtt(emp.id,d)).filter(Boolean);
+        const obecny=recs.filter(s=>s==="obecny").length;const homeOrDel=recs.filter(s=>s==="home"||s==="delegacja").length;
+        const urlop=recs.filter(s=>s==="urlop").length;const nieobecny=recs.filter(s=>s==="nieobecny").length;
+        const pct=workDaysInMonth.value>0?Math.round(((obecny+homeOrDel)/workDaysInMonth.value)*100):0;
+        const bal=calcBalance(emp.id,emp.leaveEntitlement||26);
+        return{id:emp.id,name:emp.name,obecny,homeOrDel,urlop,nieobecny,pct,leaveRem:bal.remaining,leaveEnt:bal.entitlement};
+      });
+    });
+    const totalStaz=computed(()=>{if(!empForm.value.hireDate)return 0;const hired=new Date(empForm.value.hireDate+"T12:00:00");const yrs=(new Date()-hired)/(1000*60*60*24*365.25);return Math.round((empForm.value.prevWorkYears||0)+yrs);});
+    const suggestedEntitlement=computed(()=>calcKPEntitlement(empForm.value.hireDate,empForm.value.prevWorkYears||0));
+    const autoCalcEntitlement=()=>{empForm.value.leaveEntitlement=suggestedEntitlement.value;};
+    const myTodayStatus=computed(()=>currentUser.value?getAtt(currentUser.value.id,today.value):null);
+    const myBalance=computed(()=>currentUser.value?calcBalance(currentUser.value.id,currentUser.value.leaveEntitlement||26):{entitlement:26,used:0,remaining:26,zadUsed:0});
+    const myLeaves=computed(()=>currentUser.value?leaveReqs.value.filter(r=>r.userId===currentUser.value.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)):[]);
+    const leaveDays=computed(()=>workDaysBetween(leaveForm.value.dateFrom,leaveForm.value.dateTo));
+    const last7=computed(()=>Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);}));
+    const last30=computed(()=>Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-29+i);return d.toISOString().slice(0,10);}));
+
+    const getAtt=(uid,date)=>attendance.value[`${uid}_${date}`]||null;
+    const avatarBg=id=>AVC_BG[parseInt(id||"0")%AVC_BG.length];
+    const avatarColor=id=>AVC_COL[parseInt(id||"0")%AVC_COL.length];
+    const initials=n=>(n||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+    const weekdayShort=d=>new Date(d+"T12:00:00").toLocaleDateString("pl-PL",{weekday:"narrow"});
+    const dayNum=d=>new Date(d+"T12:00:00").getDate();
+    const isWeekend=d=>{const day=new Date(d+"T12:00:00").getDay();return day===0||day===6;};
+    const statusLabel=s=>s==="pending"?"Oczekuje":s==="approved"?"Zatwierdzone":"Odrzucone";
+    const statusBadge=s=>s==="pending"?"background:#FAEEDA;color:#412402":s==="approved"?"background:#E1F5EE;color:#04342C":"background:#FCEBEB;color:#501313";
+    const calcBalance=(uid,entitlement)=>{const year=thisYear();const approved=leaveReqs.value.filter(r=>r.userId===uid&&r.status==="approved"&&r.dateFrom.startsWith(year));const wypUsed=approved.filter(r=>r.type==="wypoczynkowy").reduce((s,r)=>s+r.days,0);const zadUsed=Math.min(approved.filter(r=>r.type==="zadanie").reduce((s,r)=>s+r.days,0),4);return{entitlement,used:wypUsed+zadUsed,zadUsed,remaining:entitlement-wypUsed-zadUsed};};
+    const getUserBalance=uid=>{const u=allUsers.value.find(x=>x.id===uid);return u?calcBalance(uid,u.leaveEntitlement||26).remaining:"?";};
+
+    const loadData=async()=>{
+      if(!db)return;
+      const snap=await db.collection("users").get();
+      if(snap.empty){const r=db.collection("users").doc();await r.set({...DEFAULT_ADMIN,createdAt:todayStr()});allUsers.value=[{id:r.id,...DEFAULT_ADMIN}];}
+      else allUsers.value=snap.docs.map(d=>({id:d.id,...d.data()}));
+      const attSnap=await db.collection("attendance").get();const attMap={};attSnap.docs.forEach(d=>{attMap[d.id]=d.data().status;});attendance.value=attMap;
+      const lSnap=await db.collection("leaves").orderBy("createdAt","desc").get();leaveReqs.value=lSnap.docs.map(d=>({id:d.id,...d.data()}));
+    };
+    const doLogin=async()=>{loginError.value="";loginLoading.value=true;const user=allUsers.value.find(u=>u.login===loginForm.value.login.trim()&&u.password===loginForm.value.password);if(user)currentUser.value=user;else loginError.value="Nieprawidłowy login lub hasło";loginLoading.value=false;};
+    const doLogout=()=>{currentUser.value=null;};
+    const toggleAtt=async(uid,date,key)=>{const docId=`${uid}_${date}`;const cur=attendance.value[docId];const newS=cur===key?null:key;if(newS){attendance.value[docId]=newS;if(db)await db.collection("attendance").doc(docId).set({userId:uid,date,status:newS});}else{delete attendance.value[docId];if(db)await db.collection("attendance").doc(docId).delete();}attendance.value={...attendance.value};};
+    const openAddEmp=()=>{empForm.value={open:true,id:null,name:"",login:"",password:"haslo123",role:"employee",department:"",position:"",hireDate:todayStr(),prevWorkYears:0,leaveEntitlement:20};};
+    const openEditEmp=u=>{empForm.value={open:true,...u,prevWorkYears:u.prevWorkYears||0};};
+    const saveEmployee=async()=>{const f=empForm.value;if(!f.name||!f.login)return;const data={name:f.name,login:f.login,password:f.password,role:f.role,department:f.department,position:f.position,hireDate:f.hireDate,prevWorkYears:f.prevWorkYears||0,leaveEntitlement:parseInt(f.leaveEntitlement)||20};if(f.id){if(db)await db.collection("users").doc(f.id).update(data);allUsers.value=allUsers.value.map(u=>u.id===f.id?{...u,...data}:u);if(currentUser.value?.id===f.id)currentUser.value={...currentUser.value,...data};}else{let id=Date.now().toString();if(db){const r=await db.collection("users").add({...data,createdAt:todayStr()});id=r.id;}allUsers.value=[...allUsers.value,{id,...data}];}empForm.value={open:false};};
+    const deleteEmployee=async id=>{if(!confirm("Usunąć pracownika?"))return;if(db)await db.collection("users").doc(id).delete();allUsers.value=allUsers.value.filter(u=>u.id!==id);};
+    const resolveLeave=async(id,status)=>{if(db)await db.collection("leaves").doc(id).update({status,resolvedAt:todayStr()});leaveReqs.value=leaveReqs.value.map(r=>r.id===id?{...r,status,resolvedAt:todayStr()}:r);};
+    const submitLeave=async()=>{if(leaveDays.value===0)return;const req={userId:currentUser.value.id,userName:currentUser.value.name,type:leaveForm.value.type,dateFrom:leaveForm.value.dateFrom,dateTo:leaveForm.value.dateTo,days:leaveDays.value,note:leaveForm.value.note,status:"pending",createdAt:todayStr()};let id=Date.now().toString();if(db){const r=await db.collection("leaves").add(req);id=r.id;}leaveReqs.value=[{id,...req},...leaveReqs.value];leaveForm.value={type:"wypoczynkowy",dateFrom:"",dateTo:"",note:""};leaveMsg.value={ok:true,text:"Wniosek wysłany do zatwierdzenia."};setTimeout(()=>leaveMsg.value=null,4000);};
+    const printReport=()=>window.print();
+
+    onMounted(async()=>{if(firebaseOk.value)await loadData();loading.value=false;});
+
+    return{firebaseOk,loading,currentUser,allUsers,employees,attendance,leaveReqs,loginForm,loginError,loginLoading,adminTab,empTab,leaveFilter,reportMonth,empForm,leaveForm,leaveMsg,leaveDays,today,todayLabel,todayMetrics,pendingCount,leaveFilters,filteredLeaves,reportRows,workDaysInMonth,reportMonthLabel,printDate,myTodayStatus,myBalance,myLeaves,last7,last30,totalStaz,suggestedEntitlement,autoCalcEntitlement,ATT,ATT_MAP,LT,LEAVE_TYPES,doLogin,doLogout,toggleAtt,openAddEmp,openEditEmp,saveEmployee,deleteEmployee,resolveLeave,submitLeave,printReport,getUserBalance,getAtt,avatarBg,avatarColor,initials,weekdayShort,dayNum,isWeekend,statusLabel,statusBadge,fmtD};
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
