@@ -174,7 +174,6 @@ input[type=date]{color:#111}
             </div>
           </div>
         </div>
-        <!-- Admin note editor for today -->
         <div class="card mt12" style="padding:10px 14px">
           <div class="f12 text-muted mb8">Notatki do dzisiejszego dnia</div>
           <div class="stack">
@@ -282,11 +281,13 @@ input[type=date]{color:#111}
       <!-- RAPORTY / LISTA OBECNOŚCI -->
       <div v-if="adminTab==='reports'">
 
-        <!-- kontrolki ekranowe -->
+        <!-- kontrolki ekranowe — ZMIANA: dodane strzałki nawigacji miesiąca -->
         <div class="flex items-center gap12 mb16 no-print" style="flex-wrap:wrap">
           <div class="flex items-center gap8">
             <label style="display:inline;margin:0;font-size:13px;color:#666">Miesiąc:</label>
+            <button class="btn btn-sm" @click="reportMonth=prevMonth(reportMonth)">&#8249;</button>
             <input type="month" v-model="reportMonth" style="width:auto"/>
+            <button class="btn btn-sm" @click="reportMonth=nextMonth(reportMonth)">&#8250;</button>
           </div>
           <div class="flex items-center gap8">
             <label style="display:inline;margin:0;font-size:13px;color:#666">Pracownik:</label>
@@ -394,7 +395,7 @@ input[type=date]{color:#111}
           <div class="print-footer">Dokument sporządzony na podstawie ewidencji czasu pracy · art. 149 Kodeksu pracy</div>
         </div>
 
-        <!-- WERSJA DRUKOWANA INDYWIDUALNA — każdy pracownik na osobnej stronie -->
+        <!-- WERSJA DRUKOWANA INDYWIDUALNA -->
         <div class="print-only" v-if="printMode==='individual'">
           <div v-for="emp in reportEmployees" :key="emp.id" class="emp-page">
             <div class="print-header">
@@ -537,7 +538,8 @@ input[type=date]{color:#111}
           <div class="flex items-center gap8">
             <button class="btn btn-sm" @click="historyMonth=prevMonth(historyMonth)">&#8249;</button>
             <span class="f13 fw5">{{ historyMonthLabel }}</span>
-            <button class="btn btn-sm" @click="historyMonth=nextMonth(historyMonth)" :disabled="historyMonth>=currentMonthStr">&#8250;</button>
+            <!-- ZMIANA: usunięto :disabled="historyMonth>=currentMonthStr" — można przechodzić do przyszłych miesięcy -->
+            <button class="btn btn-sm" @click="historyMonth=nextMonth(historyMonth)">&#8250;</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
@@ -604,12 +606,10 @@ const todayStr=()=>new Date().toISOString().slice(0,10);
 const thisYear=()=>new Date().getFullYear();
 const workDaysBetween=(from,to)=>{if(!from||!to||to<from)return 0;let n=0;const d=new Date(from+"T12:00:00"),e=new Date(to+"T12:00:00");while(d<=e){const ds=d.toISOString().slice(0,10);if(isWorkDay(ds))n++;d.setDate(d.getDate()+1);}return n;};
 const POLISH_HOLIDAYS=(year)=>{
-  // Stałe święta
   const fixed=[
     `${year}-01-01`,`${year}-01-06`,`${year}-05-01`,`${year}-05-03`,
     `${year}-08-15`,`${year}-11-01`,`${year}-11-11`,`${year}-12-25`,`${year}-12-26`
   ];
-  // Wielkanoc (algorytm Gaussa)
   const a=year%19,b=Math.floor(year/100),c=year%100;
   const d2=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
   const h=(19*a+b-d2-g+15)%30,i=Math.floor(c/4),k=c%4;
@@ -617,11 +617,8 @@ const POLISH_HOLIDAYS=(year)=>{
   const month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
   const easter=new Date(year,month-1,day);
   const easterStr=easter.toISOString().slice(0,10);
-  // Poniedziałek wielkanocny
   const em=new Date(easter); em.setDate(em.getDate()+1);
-  // Zielone Świątki (49 dni po Wielkanocy)
   const wh=new Date(easter); wh.setDate(wh.getDate()+49);
-  // Boże Ciało (60 dni po Wielkanocy)
   const cc=new Date(easter); cc.setDate(cc.getDate()+60);
   return new Set([...fixed, easterStr, em.toISOString().slice(0,10), wh.toISOString().slice(0,10), cc.toISOString().slice(0,10)]);
 };
@@ -687,7 +684,6 @@ createApp({
     ]);
     const filteredLeaves=computed(()=>leaveReqs.value.filter(r=>leaveFilter.value==="all"||r.status===leaveFilter.value).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)));
 
-    // RAPORT - dni miesiąca
     const reportDays=computed(()=>{
       const[year,mon]=reportMonth.value.split("-").map(Number);
       const dim=new Date(year,mon,0).getDate();
@@ -698,8 +694,7 @@ createApp({
         const day=dt.getDay();
         const holiday=isHoliday(date);
         return{
-          date,
-          num:i+1,
+          date,num:i+1,
           wd:dt.toLocaleDateString("pl-PL",{weekday:"narrow"}),
           isWeekend:day===0||day===6||holiday,
           isHoliday:holiday,
@@ -711,7 +706,6 @@ createApp({
     const workDaysInMonth=computed(()=>reportDays.value.filter(d=>!d.isWeekend&&!d.isHoliday).length);
     const reportEmployees=computed(()=>reportEmpFilter.value?employees.value.filter(e=>e.id===reportEmpFilter.value):employees.value);
 
-    // helper functions for history calendar
     const prevMonth=m=>{const[y,mo]=m.split('-').map(Number);const d=new Date(y,mo-2,1);return d.toISOString().slice(0,7);};
     const nextMonth=m=>{const[y,mo]=m.split('-').map(Number);const d=new Date(y,mo,1);return d.toISOString().slice(0,7);};
     const historyMonthLabel=computed(()=>{const[y,mo]=historyMonth.value.split('-').map(Number);return new Date(y,mo-1,1).toLocaleDateString('pl-PL',{month:'long',year:'numeric'});});
@@ -733,8 +727,6 @@ createApp({
     const reportMonthLabel=computed(()=>{const[year,mon]=reportMonth.value.split("-").map(Number);return new Date(year,mon-1,1).toLocaleDateString("pl-PL",{month:"long",year:"numeric"});});
     const printDate=computed(()=>new Date().toLocaleDateString("pl-PL",{day:"numeric",month:"long",year:"numeric"}));
 
-    const empSummary=computed(()=>{}); // placeholder — use function below
-
     const totalStaz=computed(()=>{if(!empForm.value.hireDate)return 0;const hired=new Date(empForm.value.hireDate+"T12:00:00");const yrs=(new Date()-hired)/(1000*60*60*24*365.25);return Math.round((empForm.value.prevWorkYears||0)+yrs);});
     const suggestedEntitlement=computed(()=>calcKPEntitlement(empForm.value.hireDate,empForm.value.prevWorkYears||0));
     const autoCalcEntitlement=()=>{empForm.value.leaveEntitlement=suggestedEntitlement.value;};
@@ -746,9 +738,7 @@ createApp({
     const last7=computed(()=>Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);}));
     const last30=computed(()=>Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-29+i);return d.toISOString().slice(0,10);}));
 
-    // helpers
     const getAtt=(uid,date)=>attendance.value[`${uid}_${date}`]||null;
-
     const getCellStyle=(uid,date)=>{
       const st=getAtt(uid,date);
       const a=ATT_MAP[st];
@@ -769,11 +759,9 @@ createApp({
 
     const calcBalance=(uid,entitlement)=>{
       const year=thisYear().toString();
-      // Zlicz dni oznaczone jako "urlop" w kalendarzu w tym roku
       const urlOpDays=Object.entries(attendance.value)
         .filter(([key,status])=>key.startsWith(uid+'_')&&status==='urlop'&&key.split('_')[1]?.startsWith(year))
         .length;
-      // Zlicz urlop na żądanie z zatwierdzonych wniosków (do kontroli limitu 4 dni)
       const approved=leaveReqs.value.filter(r=>r.userId===uid&&r.status==="approved"&&r.dateFrom.startsWith(year));
       const zadUsed=Math.min(approved.filter(r=>r.type==="zadanie").reduce((s,r)=>s+r.days,0),4);
       const used=urlOpDays;
@@ -790,7 +778,6 @@ createApp({
     const statusLabel=s=>({pending:"Oczekuje",approved:"Zatwierdzone",rejected:"Odrzucone",cancelled:"Anulowane"})[s]||s;
     const statusBadge=s=>({pending:"background:#FAEEDA;color:#412402",approved:"background:#E1F5EE;color:#04342C",rejected:"background:#FCEBEB;color:#501313",cancelled:"background:#F1EFE8;color:#2C2C2A"})[s]||"";
 
-    // cykl statusów przy kliknięciu komórki: brak → OB → NB → HO → DL → UR → brak
     const cycleAtt=async(uid,date)=>{
       const cur=getAtt(uid,date);
       const idx=ATT_KEYS.indexOf(cur);
@@ -806,7 +793,6 @@ createApp({
       attendance.value={...attendance.value};
     };
 
-    // Firebase
     const loadData=async()=>{
       if(!db)return;
       const snap=await db.collection("users").get();
@@ -872,7 +858,6 @@ createApp({
     const resolveLeave=async(id,status)=>{
       if(db)await db.collection("leaves").doc(id).update({status,resolvedAt:todayStr()});
       leaveReqs.value=leaveReqs.value.map(r=>r.id===id?{...r,status,resolvedAt:todayStr()}:r);
-      // Automatycznie zaznacz/odznacz UR w kalendarzu
       const req=leaveReqs.value.find(r=>r.id===id);
       if(req&&(req.type==="wypoczynkowy"||req.type==="zadanie"||req.type==="okolicznosciowy")){
         const d=new Date(req.dateFrom+"T12:00:00"),e=new Date(req.dateTo+"T12:00:00");
@@ -912,7 +897,6 @@ createApp({
       if(!window.XLSX){alert("Biblioteka Excel nie załadowana");return;}
       const XLSX=window.XLSX;
       const wb=XLSX.utils.book_new();
-      // Arkusz zbiorczy
       const header=["Pracownik",...reportDays.value.map(d=>d.num),"OB","UR","HO","NB","%","Urlop pozostały","Uwagi"];
       const rows=[header];
       reportEmployees.value.forEach(emp=>{
@@ -923,16 +907,13 @@ createApp({
         });
         const s=empSummaryFn(emp.id);
         const bal=calcBalance(emp.id,emp.leaveEntitlement||26);
-        // Collect notes for the month
         const empNotes=reportDays.value.filter(d=>!d.isWeekend&&getNote(emp.id,d.date)?.modifier).map(d=>{const n=getNote(emp.id,d.date);return d.num+"."+n.modifier+(n.note?" ("+n.note+")":"");}).join(", ");
         row.push(s.obecny,s.urlop,s.home,s.nieobecny,s.pct+"%",bal.remaining+"/"+bal.entitlement+"d",empNotes);
         rows.push(row);
       });
       const ws=XLSX.utils.aoa_to_sheet(rows);
-      // Szerokość kolumn
       ws["!cols"]=[{wch:22},...reportDays.value.map(()=>({wch:3})),{wch:5},{wch:5},{wch:5},{wch:5},{wch:6},{wch:10}];
       XLSX.utils.book_append_sheet(wb,ws,"Lista obecności");
-      // Arkusze indywidualne
       reportEmployees.value.forEach(emp=>{
         const hdr=["Dzień","Dzień tyg.",...reportDays.value.map(d=>d.num),"OB","UR","HO","NB","%"];
         const empRows=[hdr];
@@ -956,8 +937,6 @@ createApp({
     const printIndividual=()=>{printMode.value='individual';setTimeout(()=>window.print(),50);setTimeout(()=>printMode.value='',500);};
 
     onMounted(async()=>{await loadData();loading.value=false;});
-
-
 
     return{
       loading,currentUser,allUsers,employees,attendance,leaveReqs,
